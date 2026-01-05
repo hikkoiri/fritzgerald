@@ -43,20 +43,47 @@ function App() {
     // Find the common prefix for all IPs to use as the root name
     devices = devices.filter(device => device.ip !== "");
     const allIps = devices.map(device => device.ip);
-    const root = assembleTree(allIps, 0, "");
+    let root = assembleTree(allIps, 0, "");
     sortChildrenByName(root);
+
+    // check for multiple tld cidr block
     if (root.children!.length > 1) {
-      return {
+      root = {
         name: "Network",
         children: root.children
       };
     }
     else {
-      return {
+      root = {
         name: root.children![0].name,
         children: root.children![0].children
       };
     }
+
+    const ipToEntities: Record<string, NetworkEntity[]> = {};
+    devices.forEach(device => {
+      if (!ipToEntities[device.ip]) ipToEntities[device.ip] = [];
+      ipToEntities[device.ip].push(device);
+    });
+
+    function attachEntitiesToLeaves(node: RenderableNode, prefix: string) {
+      if (!node.children || node.children.length === 0) {
+        // This is a leaf node, try to match IPs
+        const ip = node.name;
+        if (ipToEntities[ip]) {
+          node.children = ipToEntities[ip].map(entity => ({
+            name: entity.friendly_name || entity.ip
+          }));
+        }
+      } else {
+        node.children.forEach(child => {
+          attachEntitiesToLeaves(child, child.name);
+        });
+      }
+    }
+    attachEntitiesToLeaves(root, root.name);
+
+    return root;
   }
 
   function assembleTree(allIps: string[], level: number, prefix: string): RenderableNode {
