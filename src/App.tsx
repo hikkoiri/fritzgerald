@@ -44,7 +44,6 @@ function App() {
     devices = devices.filter(device => device.ip !== "");
     const allIps = devices.map(device => device.ip);
     let root = assembleTree(allIps, 0, "");
-    sortChildrenByName(root);
 
     // check for multiple tld cidr block
     if (root.children!.length > 1) {
@@ -82,6 +81,7 @@ function App() {
       }
     }
     attachEntitiesToLeaves(root, root.name);
+    sortChildrenByName(root);
 
     return root;
   }
@@ -132,7 +132,7 @@ function App() {
     // Compute the layout.
     const hierarchy = d3.hierarchy(data)
       .sum(d => (!d.children || d.children.length === 0) ? 1 : 0)
-      .sort((a, b) => (b.height - a.height) || ((b.value ?? 0) - (a.value ?? 0)));
+
     const root = d3.partition<RenderableNode>()
       .size([height, (hierarchy.height + 1) * width / 3])
       (hierarchy);
