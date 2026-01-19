@@ -71,7 +71,7 @@ function App() {
         const ip = node.name;
         if (ipToEntities[ip]) {
           node.children = ipToEntities[ip].map(entity => ({
-            name: entity.friendly_name || entity.ip
+            name: entity.uid || entity.ip
           }));
         }
       } else {
@@ -122,9 +122,9 @@ function App() {
   }
 
   function renderNetworkEntities(data: RenderableNode, container: HTMLDivElement | null) {
-    // Specify the chart’s dimensions as 80% of viewport
-    const width = Math.floor(window.innerWidth * 0.8);
-    const height = Math.floor(window.innerHeight * 0.8);
+    // Specify the chart’s dimensions as 90% of viewport
+    const width = Math.floor(window.innerWidth * 0.9);
+    const height = Math.floor(window.innerHeight * 0.9);
 
     // Create the color scale.
     const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children ? data.children.length + 1 : 1));
@@ -172,10 +172,51 @@ function App() {
       .attr("fill-opacity", d => +labelVisible(d));
 
     text.append("tspan")
-      .text(d => d.data.name);
+      .each(function (d) {
+        const entity = networkEntities.find(e => e.uid === d.data.name);
+        const tspan = d3.select(this)
 
-    const tspan = text.append("tspan")
-      .attr("fill-opacity", d => (labelVisible(d) ? 1 : 0) * 0.7)
+        if (!entity) {
+          tspan.append('tspan')
+            .text(d.data.name);
+        }
+        else {
+          tspan.append('tspan')
+            .attr('font-weight', 'bold')
+            .text(entity.friendly_name);
+
+          tspan.append('tspan')
+            .attr('dx', 8)
+            .attr('font-size', '1.1em')
+            .text(entity.active ? '🟢' : '🔴');
+        }
+      });
+
+    const details = text.append("tspan")
+      .each(function (d) {
+        const entity = networkEntities.find(e => e.uid === d.data.name);
+        const tspan = d3.select(this)
+
+        if (entity) {
+          let config: Map<string, string> = new Map();
+          config.set('uid', entity.uid);
+          config.set('active', entity.active ? '🟢' : '🔴');
+          config.set('online', entity.online ? '🟢' : '🔴');
+          config.set('flags', entity.flags);
+          config.set('static_dhcp', entity.static_dhcp ? '✅' : '❌');
+          if (entity.firstused && Number(entity.firstused) !== 0) config.set('first used', new Date(Number(entity.firstused) * 1000).toLocaleString("de"));
+          if (entity.lastused && Number(entity.lastused) !== 0) config.set('last used', new Date(Number(entity.lastused) * 1000).toLocaleString("de"));
+
+          let offset = 12;
+          for (let [key, value] of config) {
+            tspan.append('tspan')
+              .attr('x', 4)
+              .attr('y', 13 + offset)
+              .text(`${key}: ${value}`);
+            offset += 12;
+          }
+        }
+      });
 
     // On click, change the focus and transitions it into view.
     let focus = root;
@@ -183,7 +224,6 @@ function App() {
 
       // Prevent error if p is null (e.g., clicking the root with no parent)
       if (!p || !p.parent) return;
-
 
       focus = focus === p ? p = p.parent! : p;
 
@@ -196,12 +236,12 @@ function App() {
         };
       });
 
-      const t = cell.transition().duration(750)
+      cell.transition().duration(750)
         .attr("transform", d => `translate(${(d as any).target.y0},${(d as any).target.x0})`);
 
       rect.transition().duration(750).attr("height", d => rectHeight((d as any).target));
       text.transition().duration(750).attr("fill-opacity", d => +labelVisible((d as any).target));
-      tspan.transition().duration(750).attr("fill-opacity", d => (labelVisible((d as any).target) ? 1 : 0) * 0.7);
+      details.transition().duration(750).attr("fill-opacity", d => +detailsVisible((d as any).target));
     }
 
     function rectHeight(d: any) {
@@ -212,6 +252,10 @@ function App() {
       return d.y1 <= width && d.y0 >= 0 && d.x1 - d.x0 > 16;
     }
 
+    function detailsVisible(d: any) {
+      console.log(d.x1 - d.x0)
+      return d.x1 - d.x0 > 80
+    }
 
     if (container) {
       container.innerHTML = '';
@@ -231,7 +275,7 @@ function App() {
     // Center the chart using flexbox
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', height: '100vh' }}>
-        <div ref={chartRef} style={{ width: '80vw', height: '80vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
+        <div ref={chartRef} style={{ width: '90vw', height: '90vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
       </div>
     );
   }
